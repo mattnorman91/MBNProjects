@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MBN Projects — Manager Dashboard</title>
+
+  <!-- Inter font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind utilities (optional) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Feather icons -->
+  <script src="https://unpkg.com/feather-icons"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --sidebar:#21303a;
+      --sidebar-quiet:#17252b;
+      --logo-color:#46C855;
+      --accent:#2563eb;
+      --accent-2:#06b6d4;
+      --muted:#7b8693;
+      --card-bg:#ffffff;
+      --page-bg:#eef3f6;
+
+      --sidebar-expanded-width:260px;
+      --sidebar-collapsed-width:96px;
+      --brand-display-width:160px;
+      --brand-display-height:160px;
+
+      --max-content-width:1200px;
+      --page-padding:28px;
+    }
+
+    html,body {
+      font-family: "Inter", Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      height:100%; margin:0;
+      background: linear-gradient(180deg,#f6fafb,#eef3f6);
+      color:#072034;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    html, body { overflow-y:auto; -webkit-overflow-scrolling: touch; }
+    .app { display:flex; min-height:100vh; align-items:stretch; box-sizing: border-box; }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed; left:0; top:0; height:100vh;
+      width: var(--sidebar-expanded-width);
+      background: linear-gradient(180deg,var(--sidebar),var(--sidebar-quiet));
+      color:white; padding:16px; box-sizing:border-box; display:flex; flex-direction:column;
+      transition: width 220ms cubic-bezier(.2,.9,.3,1);
+      z-index:60; box-shadow: 0 12px 36px rgba(2,6,23,0.12);
+    }
+    .sidebar.collapsed { width: var(--sidebar-collapsed-width); }
+
+    .brand { width:100%; display:flex; align-items:center; justify-content:center; margin-bottom:12px; padding:6px 0; }
+    #brandLogo { display:none; width: var(--brand-display-width); height:auto; border-radius:999px; object-fit: contain; transition: opacity 180ms ease; opacity:0; box-shadow: 0 8px 30px rgba(2,6,23,0.12); }
+    #brandFallback { display:flex; align-items:center; justify-content:center; width: var(--brand-display-width); height: var(--brand-display-height); min-height:56px; padding:12px; border-radius:999px; background:#10b981; font-weight:900; color:white; font-size:20px; box-shadow: 0 8px 30px rgba(2,6,23,0.10); }
+
+    .nav { margin-top:18px; display:flex; flex-direction:column; gap:10px; }
+    .nav-item { display:flex; gap:12px; align-items:center; padding:12px 14px; border-radius:12px; cursor:pointer; color:rgba(255,255,255,0.95); user-select:none; transition: background 120ms, transform 120ms; background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent); }
+    .nav-item:hover { transform: translateY(-3px); background: rgba(255,255,255,0.02); }
+    .nav-item.active { background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)); box-shadow: inset 3px 0 0 rgba(255,255,255,0.06); }
+
+    .nav-item .icon { width:22px; height:22px; display:flex; align-items:center; justify-content:center; flex:0 0 22px; color: var(--logo-color); }
+    .nav-item .icon svg { width:18px; height:18px; stroke: currentColor !important; fill: none !important; }
+    .nav-item.active .icon { color: #4fe06e; }
+
+    .nav-item .label { white-space:nowrap; font-weight:700; letter-spacing:0.2px; color:rgba(255,255,255,0.95); transition: opacity 160ms, width 160ms; }
+
+    .sidebar.collapsed .nav-item { justify-content:center; padding:12px 6px; }
+    .sidebar.collapsed .nav-item .label { display:none !important; opacity:0 !important; width:0 !important; overflow:hidden !important; }
+    body.sidebar-collapsed .nav-item { justify-content:center; padding:12px 6px; }
+    body.sidebar-collapsed .nav-item .label { display:none !important; opacity:0 !important; width:0 !important; overflow:hidden !important; }
+
+    .sidebar.collapsed #brandFallback { width: calc(var(--sidebar-collapsed-width) - 16px); height: calc(var(--sidebar-collapsed-width) - 16px); padding:6px; font-size:14px; }
+    .sidebar.collapsed #brandLogo { width: calc(var(--sidebar-collapsed-width) - 16px); height: calc(var(--sidebar-collapsed-width) - 16px); display:block; opacity:1; }
+
+    .sidebar-handle { position:absolute; right:-10px; top:20px; width:20px; height:44px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:transparent; color:rgba(255,255,255,0.9); opacity:0; z-index:70; box-shadow: 0 6px 18px rgba(2,6,23,0.12); pointer-events:none; }
+    .sidebar:hover .sidebar-handle { opacity:1; pointer-events:auto; }
+
+    .main { margin-left:260px; padding: var(--page-padding); box-sizing:border-box; width:100%; max-width: var(--max-content-width); transition: margin-left 220ms; overflow: visible; }
+    body.sidebar-collapsed .main { margin-left: var(--sidebar-collapsed-width); }
+
+    .topbar { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
+    .page-title { font-weight:900; font-size:1.35rem; color:#0b2545; }
+    .small-muted { font-size:13px; color:#7b8693; }
+
+    .card { background: linear-gradient(180deg, #ffffff, #fbfdff); border-radius:14px; padding:18px; box-shadow: 0 12px 40px rgba(6,22,40,0.06); }
+
+    /* Home layout */
+    .home-grid { display:grid; grid-template-columns: 2fr 360px; gap:18px; margin-top:12px; }
+    .home-top { display:grid; grid-template-columns: 1fr; gap:18px; }
+    .new-project-card { border-radius:14px; padding:18px; background: linear-gradient(180deg,#fff,#fbfdff); box-shadow: 0 12px 40px rgba(6,22,40,0.06); display:flex; gap:18px; align-items:flex-start; }
+    .new-project-left { width:220px; display:flex; flex-direction:column; align-items:flex-start; gap:8px; } /* title flush-left */
+
+    /* small centered preview above the button */
+    .project-preview-wrap { display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; }
+
+    .new-project-preview {
+      width:110px;
+      height:155px; /* compact A4-like */
+      background: linear-gradient(180deg,#ffffff,#fcfcfd);
+      border: 1px solid rgba(11,37,69,0.06);
+      border-radius:6px;
+      box-shadow: 0 8px 20px rgba(2,6,23,0.06);
+      position:relative;
+      overflow:hidden;
+      display:flex;
+      align-items:flex-start;
+      justify-content:flex-start;
+      padding:12px;
+      color:#c0c6cb;
+      font-size:12px;
+      margin: 0 auto;
+    }
+    .new-project-preview::before{
+      content:'';
+      position:absolute;
+      left:0; top:28px;
+      right:0;
+      bottom:0;
+      background-image: linear-gradient(transparent 10px, rgba(0,0,0,0.02) 10px);
+      background-size: 100% 20px;
+      opacity:0.12;
+      pointer-events:none;
+    }
+    .new-project-preview::after{
+      content:'';
+      position:absolute;
+      right:8px; top:8px;
+      width:18px; height:18px;
+      background: linear-gradient(135deg, rgba(0,0,0,0.03), rgba(255,255,255,0.0));
+      border-bottom-left-radius: 3px;
+      pointer-events:none;
+    }
+
+    .new-project-right { flex:1; display:flex; flex-direction:column; gap:6px; }
+
+    .subhead { font-weight:800; font-size:14px; color:#0b2545; margin-top:8px; }
+
+    .templates-list { margin-top:8px; display:flex; flex-direction:column; gap:8px; }
+
+    /* Recent projects wrapper */
+    .recent-projects-card { border-radius:14px; padding:0; overflow:visible; }
+    .recent-projects-wrapper {
+      background: var(--card-bg);
+      border-radius:12px;
+      padding:16px;
+      box-shadow: 0 12px 36px rgba(6,22,40,0.04);
+      border: 1px solid #f1f5f9;
+    }
+    .recent-projects-body { padding:0; }
+    .recent-table { width:100%; border-collapse:collapse; margin:0; }
+    .recent-table thead th { text-align:left; padding:12px 18px; color:#123; font-weight:700; font-size:14px; border-bottom:1px solid #eef4f6; background:transparent; }
+    .recent-table tbody td { padding:14px 18px; border-bottom:1px solid #f6f8fb; color:#4b5563; background:transparent; }
+
+    .right-stack { display:flex; flex-direction:column; gap:18px; }
+
+    .donut-inner { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .donut-canvas { flex:0 0 220px; max-width:100%; height:220px; }
+    .donut-legend { flex:1 1 120px; min-width:120px; }
+
+    /* Buttons */
+    .btn-modern {
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(180deg, var(--sidebar), var(--sidebar-quiet));
+      color: #ffffff;
+      box-shadow: 0 6px 18px rgba(2,6,23,0.12);
+      transition: transform 140ms cubic-bezier(.2,.9,.3,1), box-shadow 140ms, background 120ms;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .btn-modern:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(2,6,23,0.16); }
+    .btn-modern:active { transform: translateY(0); box-shadow: 0 6px 16px rgba(2,6,23,0.10); }
+    .btn-modern:focus { outline: 3px solid rgba(70,200,85,0.14); outline-offset: 2px; }
+
+    .btn-modern.ghost { background: transparent; color: #ffffff; border: 1px solid rgba(255,255,255,0.06); box-shadow: none; padding: 9px 14px; }
+    .btn-modern.ghost:hover { background: rgba(255,255,255,0.03); transform: translateY(-2px); }
+
+    @media (max-width:1100px){
+      .home-grid { grid-template-columns: 1fr; }
+      .sidebar { width:var(--sidebar-collapsed-width); }
+      body.sidebar-collapsed .main { margin-left: var(--sidebar-collapsed-width); }
+      .new-project-left { display:block; width:100%; }
+      .project-preview-wrap { align-items:center; }
+      .new-project-preview { width:120px; height:170px; }
+    }
+
+    /* Modal (create project) */
+    .modal-backdrop{
+      position:fixed; inset:0; background:rgba(3,6,12,0.46); display:none; align-items:center; justify-content:center; z-index:1200;
+    }
+    .modal{
+      width:420px; max-width:94%; background:white; border-radius:12px; padding:18px; box-shadow: 0 24px 80px rgba(2,6,23,0.28);
+      transform-origin:center; }
+    .modal h3{ margin:0 0 8px 0; font-size:18px; }
+    .modal .muted { color:#6b7280; font-size:13px; margin-bottom:12px; }
+    .modal .row { display:flex; gap:8px; align-items:center; margin-top:12px; }
+    .modal input[type="text"]{ width:100%; padding:10px 12px; border:1px solid #e6eef3; border-radius:8px; font-size:14px; }
+    .modal .actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:14px; }
+
+    .modal-backdrop.visible{ display:flex; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      background: #0b2545;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      box-shadow: 0 12px 40px rgba(2,6,23,0.18);
+      z-index: 1300;
+      display:none;
+    }
+    .toast.show{ display:block; }
+
+    /* Debug overlay */
+    #debugOverlay { position:fixed; right:12px; bottom:120px; background: rgba(0,0,0,0.66); color:white; padding:8px 10px; font-size:12px; border-radius:8px; z-index:9999; display:none; }
+    #debugOverlay.visible { display:block; }
+    #debugOverlay .item { opacity:0.85; margin:4px 0; }
+
+  </style>
+</head>
+<body>
+  <div class="app" role="application">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar" aria-label="Main navigation" role="navigation">
+      <div style="display:flex; align-items:center; gap:8px; width:100%;">
+        <div class="brand" id="brand">
+          <img id="brandLogo" src="{{LOGO_SRC}}" alt="MBN Projects logo" onerror="this.style.display='none';document.getElementById('brandFallback').style.display='flex'">
+          <div id="brandFallback" style="display:flex;align-items:center;justify-content:center;">MBN</div>
+        </div>
+
+        <div class="sidebar-handle" id="sidebarHandle" role="button" aria-label="Toggle sidebar" tabindex="0" title="Toggle sidebar">
+          <div class="chev" id="chevChar">‹</div>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <div class="nav-item active" id="navHome" data-view="home" title="Home">
+          <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9.5L12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5z"/></svg></div>
+          <div class="label">Home</div>
+        </div>
+
+        <div class="nav-item" id="navDashboard" data-view="dashboard" title="Project Dashboard">
+          <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 13h8V3H3v10zM13 21h8V11h-8v10zM13 3v6h8V3h-8zM3 21h8v-8H3v8z"/></svg></div>
+          <div class="label">Project Dashboard</div>
+        </div>
+
+        <div class="nav-item" id="navTasks" data-view="tasks" title="Tasks">
+          <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/></svg></div>
+          <div class="label">Tasks</div>
+        </div>
+
+        <div class="nav-item" id="navWorkload" data-view="workload" title="Workload">
+          <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div class="label">Workload</div>
+        </div>
+
+        <div class="nav-item" id="navFiles" data-view="files" title="Project Files">
+          <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6V2z"/></svg></div>
+          <div class="label">Project Files</div>
+        </div>
+
+        <div class="nav-item" id="navReports" data-view="reports" title="RAID log">
+          <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div class="label">RAID log</div>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main" id="mainContent" role="main" tabindex="-1">
+      <!-- Topbar -->
+      <div class="topbar">
+        <div>
+          <div class="page-title" id="topTitle">Home</div>
+          <div class="small-muted" id="topSubtitle"></div>
+        </div>
+        <div style="margin-left:auto; display:flex; gap:12px; align-items:center;"></div>
+      </div>
+
+      <!-- Home view -->
+      <section id="homeView" class="home-card" role="region" aria-label="Home">
+        <div class="home-grid" aria-live="polite">
+          <div>
+            <div class="home-top">
+              <div class="new-project-card">
+                <!-- Left: new project header and centered smaller preview + button -->
+                <div class="new-project-left">
+                  <div style="font-weight:900; font-size:18px; margin-bottom:6px;">New Project</div>
+
+                  <div class="project-preview-wrap">
+                    <div class="new-project-preview" id="newPreview" aria-hidden="true">
+                      <div style="width:65%; height:8px; background:linear-gradient(90deg,#eef2f6,#eef2f6); border-radius:4px; margin-bottom:10px;"></div>
+                      <div style="width:80%; height:6px; background:linear-gradient(90deg,#f3f6f9,#f3f6f9); border-radius:4px; margin-bottom:6px;"></div>
+                      <div style="width:55%; height:6px; background:linear-gradient(90deg,#f3f6f9,#f3f6f9); border-radius:4px;"></div>
+                    </div>
+
+                    <button id="btnNewBlank" class="btn-modern" style="align-self:center;">New Blank Project</button>
+                  </div>
+                </div>
+
+                <!-- Right: Load from a template subheader + saved templates list -->
+                <div class="new-project-right">
+                  <div class="subhead">Load From A Template</div>
+
+                  <div id="savedTemplatesList" class="templates-list" aria-live="polite">
+                    <div class="small-muted">No templates saved</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Recent projects with white wrapper -->
+              <div class="recent-projects-card" style="margin-top:12px;">
+                <div class="recent-projects-wrapper">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div style="font-weight:800; font-size:18px;">Recent Projects</div>
+                    <div class="small-muted">Manage your most recent work</div>
+                  </div>
+
+                  <div class="recent-projects-body">
+                    <table class="recent-table" aria-label="Recent projects">
+                      <thead>
+                        <tr>
+                          <th>Project Name</th>
+                          <th>Last Edited</th>
+                          <th>Project Status</th>
+                        </tr>
+                      </thead>
+                      <tbody id="recentProjectsBody">
+                        <tr><td colspan="3" style="padding:30px 18px; text-align:center; color:#8aa0ab;">No recent projects</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="right-stack">
+            <div class="card open-card">
+              <div style="font-weight:800; margin-bottom:8px;">Open Existing Project</div>
+              <div style="color:#4b5563;">Select a project to open</div>
+              <div style="margin-top:12px;">
+                <button id="btnOpenProject" class="btn-modern">Open Project...</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dashboard -->
+      <section id="dashboardView" class="card hidden" role="region" aria-label="Project Dashboard">
+        <section class="kpis" aria-label="Key metrics" style="display:grid; grid-template-columns: repeat(4,1fr); gap:14px; margin-bottom:18px;">
+          <div class="kpi card" style="display:flex; align-items:center; gap:14px;">
+            <div class="kpi-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151"><path d="M12 2l2 4h4l-3 3 1 4-4-2-4 2 1-4L6 6h4z"/></svg></div>
+            <div class="kpi-body"><div class="small-muted">Active Projects</div><div id="kpiActiveProjects" style="font-weight:800">0</div></div>
+          </div>
+          <div class="kpi card" style="display:flex; align-items:center; gap:14px;">
+            <div class="kpi-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151"><path d="M3 7h18M3 12h18M3 17h18"/></svg></div>
+            <div class="kpi-body"><div class="small-muted">Cost</div><div id="kpiCost" style="font-weight:800">$0</div><div class="small-muted" id="kpiCostPct">0% of budget</div></div>
+          </div>
+          <div class="kpi card" style="display:flex; align-items:center; gap:14px;">
+            <div class="kpi-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151"><path d="M3 12h18"/></svg></div>
+            <div class="kpi-body"><div class="small-muted">Avg. Margin</div><div id="kpiMargin" style="font-weight:800">0%</div></div>
+          </div>
+          <div class="kpi card" style="display:flex; align-items:center; gap:14px;">
+            <div class="kpi-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151"><path d="M4 4h16v16H4z"/></svg></div>
+            <div class="kpi-body"><div class="small-muted">Revenue</div><div id="kpiRevenue" style="font-weight:800">$0</div><div class="small-muted" id="kpiRevenuePct">0% of target</div></div>
+          </div>
+        </section>
+
+        <section class="dashboard-grid" aria-label="Dashboard panels" style="display:grid; grid-template-columns: 2fr 1fr; gap:16px;">
+          <div class="left-column">
+            <div class="projects-card card">
+              <div class="projects-head">
+                <div style="font-weight:800">My Projects</div>
+                <div class="small-muted">Schedule health & deadlines</div>
+              </div>
+              <table class="projects-table w-full" style="width:100%; border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="width:36px;"></th>
+                    <th>Name</th>
+                    <th style="width:160px">Schedule Health</th>
+                    <th style="width:90px">% Comp</th>
+                    <th style="width:120px">Deadline</th>
+                  </tr>
+                </thead>
+                <tbody id="projectsTableBody" role="list"></tbody>
+              </table>
+            </div>
+
+            <div class="card chart-card" style="padding:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="font-weight:800">Resources - Effort (Planned vs Actual)</div>
+                <div class="small-muted">Weekly</div>
+              </div>
+              <div style="height:260px; width:100%;"><canvas id="resourceChart"></canvas></div>
+            </div>
+          </div>
+
+          <div class="right-column">
+            <div class="donut-card card">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-weight:800">Tasks Status</div>
+                <div class="small-muted">Distribution</div>
+              </div>
+
+              <div class="donut-inner" style="margin-top:8px;">
+                <div class="donut-canvas"><canvas id="tasksDonut"></canvas></div>
+                <div class="donut-legend" style="flex:1; margin-left:6px;">
+                  <ul style="list-style:none;padding:0;margin:0;">
+                    <li class="small-muted"><span style="display:inline-block;width:12px;height:12px;background:#c4b5fd;border-radius:6px;margin-right:8px;"></span> Future</li>
+                    <li class="small-muted"><span style="display:inline-block;width:12px;height:12px;background:#fb7185;border-radius:6px;margin-right:8px;"></span> Off Track</li>
+                    <li class="small-muted"><span style="display:inline-block;width:12px;height:12px;background:#bbf7d0;border-radius:6px;margin-right:8px;"></span> On Track</li>
+                    <li class="small-muted"><span style="display:inline-block;width:12px;height:12px;background:#ffd8a8;border-radius:6px;margin-right:8px;"></span> At Risk</li>
+                    <li class="small-muted"><span style="display:inline-block;width:12px;height:12px;background:#bfdbfe;border-radius:6px;margin-right:8px;"></span> Blocked</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="activity-card card">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-weight:800">Activity Stream</div>
+                <div class="small-muted">Live feed</div>
+              </div>
+
+              <div style="margin-top:12px;">
+                <div class="activity-item" style="display:flex; gap:12px; padding:12px 0; border-bottom:1px solid #f1f5f9;">
+                  <div style="width:44px;height:44px;border-radius:999px;background:#10b981;color:white;display:flex;align-items:center;justify-content:center;font-weight:800;">MN</div>
+                  <div style="flex:1">
+                    <div style="font-weight:800">Notify emergency & essential services</div>
+                    <div class="small-muted">Task: Risk Management • Today</div>
+                    <div style="margin-top:8px;" class="small-muted">You updated progress of this task to 5%.</div>
+                  </div>
+                </div>
+
+                <div class="activity-item" style="display:flex; gap:12px; padding:12px 0;">
+                  <div style="width:44px;height:44px;border-radius:999px;background:#7c3aed;color:white;display:flex;align-items:center;justify-content:center;font-weight:800;">AL</div>
+                  <div style="flex:1">
+                    <div style="font-weight:800">Design review completed</div>
+                    <div class="small-muted">Task: UX Improvements • Yesterday</div>
+                    <div style="margin-top:8px;" class="small-muted">Attachment: design-v2.pdf</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+      </section>
+
+      <!-- Editor -->
+      <section id="editorView" class="card hidden" style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:900; font-size:18px;" id="projectTitle">Project Editor</div>
+            <div class="small-muted" id="projectPath">Path: (not saved)</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button id="editorSaveBtn" class="btn-modern">Save</button>
+            <button id="editorCloseBtn" class="btn-modern ghost">Close</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="small-muted">Project editing UI will appear here (board, groups, tasks, timeline).</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal: Create New Project -->
+  <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document" aria-labelledby="modalTitle">
+      <h3 id="modalTitle">Create New Project</h3>
+      <div class="muted">Enter a name for the new project. A folder will be created at Documents\MBNProjects\projects\<ProjectName> with three subfolders and a Planning Excel file.</div>
+
+      <label for="projectNameInput" class="muted" style="font-size:13px;">Project name</label>
+      <input id="projectNameInput" type="text" placeholder="e.g. Q2 Website Redesign" autocomplete="off" />
+
+      <div style="margin-top:8px; font-size:13px; color:#6b7280;">Note: project names should contain letters, numbers, spaces, hyphens or underscores. Avoid special characters.</div>
+
+      <div class="actions">
+        <button id="modalCancelBtn" class="btn-modern ghost" type="button">Cancel</button>
+        <button id="modalCreateBtn" class="btn-modern" type="button">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Debug overlay -->
+  <div id="debugOverlay" aria-hidden="true">
+    <div style="font-weight:700; font-size:13px; margin-bottom:6px;">Debug</div>
+    <div class="item" id="dbgPath">idle</div>
+    <div class="item" id="dbgSize"></div>
+    <div style="font-size:11px; opacity:0.8; margin-top:6px;">(shows which trigger fired)</div>
+  </div>
+
+  <script>
+    /*
+      Full UI script (complete, matching your attached version) with a few safety fixes:
+      - Defines missing helpers used elsewhere (loadSidebarStateFromBackend)
+      - Uses typeof checks before calling .destroy() on chart instances to avoid "not a function" errors
+      - Ensures DOM element references used by multiple functions are cached
+      - Backend project creation wrapper keeps the multiple-candidate attempts for backward compatibility
+    */
+
+    // ---------- DOM shortcuts & cached elements ----------
+    const $ = id => document.getElementById(id);
+    const sidebar = $('sidebar');
+    const sidebarHandle = $('sidebarHandle');
+    const chevChar = $('chevChar');
+    const recentProjectsBody = $('recentProjectsBody');
+    const savedTemplatesList = $('savedTemplatesList');
+    const modalBackdrop = $('modalBackdrop');
+    const projectNameInput = $('projectNameInput');
+    const modalCreateBtn = $('modalCreateBtn');
+    const modalCancelBtn = $('modalCancelBtn');
+
+    function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<"'>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function showToast(text, ms=3000){ const t=$('toast'); t.textContent = text; t.classList.add('show'); setTimeout(()=> t.classList.remove('show'), ms); }
+
+    // ---------- Modal helpers ----------
+    function openCreateModal(){
+      projectNameInput.value = '';
+      modalBackdrop.classList.add('visible');
+      modalBackdrop.setAttribute('aria-hidden','false');
+      projectNameInput.focus();
+    }
+    function closeCreateModal(){
+      modalBackdrop.classList.remove('visible');
+      modalBackdrop.setAttribute('aria-hidden','true');
+    }
+
+    // ---------- Backend project creation wrapper ----------
+    async function backendCreateProject(projectName){
+      if(window.pywebview && window.pywebview.api){
+        const api = window.pywebview.api;
+        const candidates = [
+          {fn: api.create_project, args: [projectName]},
+          {fn: api.new_project_named, args: [projectName]},
+          {fn: api.new_project, args: [projectName]},
+          {fn: api.new_project, args: [{name: projectName}]},
+          {fn: api.new_project_with_name, args: [projectName]},
+        ];
+        for(const c of candidates){
+          try{
+            if(typeof c.fn === 'function'){
+              const res = await c.fn(...c.args);
+              return res || { success: true };
+            }
+          }catch(err){
+            console.warn('createProject candidate failed', err);
+          }
+        }
+      }
+      throw new Error('Backend API not available to create project');
+    }
+
+    function validateProjectName(name){
+      if(!name || !name.trim()) return 'Project name cannot be empty';
+      const trimmed = name.trim();
+      if(trimmed.length > 100) return 'Project name is too long';
+      if(!/^[\w\s\-\(\)\.]+$/.test(trimmed)) return 'Project name contains invalid characters';
+      return null;
+    }
+
+    async function createProjectFlow(){
+      const rawName = projectNameInput.value || '';
+      const name = rawName.trim();
+      const v = validateProjectName(name);
+      if(v){ showToast(v, 3500); projectNameInput.focus(); return; }
+      modalCreateBtn.disabled = true;
+      modalCreateBtn.textContent = 'Creating...';
+      try{
+        const res = await backendCreateProject(name);
+        if(res && res.error){
+          throw new Error(res.error || 'Backend returned an error');
+        }
+        closeCreateModal();
+        showToast('Project created — opening dashboard', 3000);
+        setActiveNav($('navDashboard'));
+        showView('dashboard');
+        clearDashboardForNewProject(name);
+        await loadHomeRecentsAndTemplates();
+      } catch(err){
+        console.error('createProjectFlow error', err);
+        showToast('Create failed: ' + (err && err.message ? err.message : String(err)), 6000);
+      } finally {
+        modalCreateBtn.disabled = false;
+        modalCreateBtn.textContent = 'Create';
+      }
+    }
+
+    // ---------- Sidebar state helpers (load/save) ----------
+    const SIDEBAR_STATE_KEY = 'mbn_sidebar_collapsed';
+    function applySidebarCollapsed(collapsed){
+      if(collapsed){
+        sidebar.classList.add('collapsed');
+        document.body.classList.add('sidebar-collapsed');
+        chevChar.innerText = '›';
+        sidebar.setAttribute('aria-expanded','false');
+      } else {
+        sidebar.classList.remove('collapsed');
+        document.body.classList.remove('sidebar-collapsed');
+        chevChar.innerText = '‹';
+        sidebar.setAttribute('aria-expanded','true');
+      }
+    }
+    function persistSidebarState(collapsed){ try { localStorage.setItem(SIDEBAR_STATE_KEY, collapsed ? 'true' : 'false'); } catch(e){} }
+
+    async function loadSidebarStateFromBackend(){
+      // Try localStorage first (fast). Backend may provide saved UI state via API.save_ui_state / get_ui_state in some setups.
+      try{
+        const val = localStorage.getItem(SIDEBAR_STATE_KEY);
+        const collapsed = (val === 'true');
+        applySidebarCollapsed(collapsed);
+      }catch(e){
+        try{ applySidebarCollapsed(false); }catch(e){}
+      }
+    }
+
+    // ---------- Event wiring for sidebar toggle ----------
+    sidebarHandle.addEventListener('click', ()=>{
+      const collapsed = sidebar.classList.contains('collapsed');
+      applySidebarCollapsed(!collapsed);
+      persistSidebarState(!collapsed);
+      try { if(window.pywebview && window.pywebview.api && typeof window.pywebview.api.save_ui_state === 'function'){ window.pywebview.api.save_ui_state({ sidebar_collapsed: !!(!collapsed) }).catch(()=>{}); } } catch(e){}
+    });
+    sidebarHandle.addEventListener('keydown', ev => { if(ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); sidebarHandle.click(); }});
+    new MutationObserver(()=>{ if(sidebar.classList.contains('collapsed')) document.body.classList.add('sidebar-collapsed'); else document.body.classList.remove('sidebar-collapsed'); }).observe(sidebar, { attributes:true, attributeFilter:['class'] });
+
+    // ---------- Logo helpers (robust loader) ----------
+    function recolorSvgPreserveWhite(svgText, targetColor){
+      try {
+        svgText = svgText.replace(/(fill)\s*=\s*"([^"]*)"/gi, function(m,p1,p2){
+          const val = p2.trim().toLowerCase();
+          if(val === 'none' || val === '' || val === 'white' || val === '#fff' || val === '#ffffff' || val.indexOf('rgb(255') === 0) return m;
+          return `${p1}="${targetColor}"`;
+        });
+        svgText = svgText.replace(/(stroke)\s*=\s*"([^"]*)"/gi, function(m,p1,p2){
+          const val = p2.trim().toLowerCase();
+          if(val === 'none' || val === '' || val === 'white' || val === '#fff' || val === '#ffffff' || val.indexOf('rgb(255') === 0) return m;
+          return `${p1}="${targetColor}"`;
+        });
+        svgText = svgText.replace(/style\s*=\s*"([^"]*)"/gi, function(m,p1){
+          const parts = p1.split(';');
+          const out = parts.map(function(part){
+            if(!part.trim() || part.indexOf(':') === -1) return part;
+            const kv = part.split(':');
+            const k = kv[0].trim().toLowerCase();
+            const v = kv.slice(1).join(':').trim();
+            const lv = v.toLowerCase();
+            if((k === 'fill' || k === 'stroke') && !(lv === 'none' || lv === '' || lv === 'white' || lv === '#fff' || lv === '#ffffff' || lv.indexOf('rgb(255') === 0)){
+              return k + ':' + targetColor;
+            }
+            return part;
+          });
+          return 'style="' + out.join(';') + '"';
+        });
+        return svgText;
+      } catch(e){ return svgText; }
+    }
+    function preloadImage(src){ return new Promise((resolve, reject)=>{ const img = new Image(); img.onload = ()=>resolve(src); img.onerror = (e)=>reject(e); img.src = src; if(img.decode) img.decode().catch(()=>{}); }); }
+    async function tryLoadLogoRobust(){
+      try {
+        const brandImg = $('brandLogo');
+        const src = brandImg.getAttribute('src') || '';
+        if(!src || src === '{{LOGO_SRC}}'){ brandImg.style.display='none'; $('brandFallback').style.display='flex'; return; }
+        if(src.startsWith('data:')){ brandImg.src = src; brandImg.style.display='block'; brandImg.style.opacity='1'; $('brandFallback').style.display='none'; return; }
+        const isFileUri = src.startsWith('file://') || /^[a-zA-Z]:\\/.test(src) || src.startsWith('/');
+        if(isFileUri){ try{ await preloadImage(src); }catch(e){} brandImg.src = src; brandImg.style.display='block'; $('brandFallback').style.display='none'; return; }
+        try{
+          const resp = await fetch(src, { cache:'no-store' });
+          if(!resp.ok) throw new Error('fetch failed');
+          const ct = (resp.headers.get('content-type')||'').toLowerCase();
+          if(ct.includes('svg') || src.toLowerCase().endsWith('.svg')){
+            const text = await resp.text();
+            const recol = recolorSvgPreserveWhite(text, getComputedStyle(document.documentElement).getPropertyValue('--logo-color').trim() || '#46C855');
+            $('brandLogo').src = 'data:image/svg+xml;utf8,' + encodeURIComponent(recol);
+            $('brandLogo').style.display='block'; $('brandFallback').style.display='none'; return;
+          } else {
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            try{ await preloadImage(url); }catch(e){}
+            $('brandLogo').src = url; $('brandLogo').style.display='block'; $('brandFallback').style.display='none'; setTimeout(()=>URL.revokeObjectURL(url),2000); return;
+          }
+        }catch(e){
+          try{ await preloadImage(src); $('brandLogo').src = src; $('brandLogo').style.display='block'; $('brandFallback').style.display='none'; return; }catch(err){}
+          $('brandLogo').style.display='none'; $('brandFallback').style.display='flex'; console.warn('Logo load failed', e); return;
+        }
+      } catch(e){ $('brandLogo').style.display='none'; $('brandFallback').style.display='flex'; console.warn('tryLoadLogoRobust error', e); }
+    }
+
+    // ---------- Dashboard rendering helpers (charts) ----------
+    function renderDashboardCharts(){
+      // tasks donut
+      const donutEl = document.getElementById('tasksDonut');
+      if(donutEl){
+        const ctx = donutEl.getContext('2d');
+        const labels = ['Future','Off Track','On Track','At Risk','Blocked'];
+        const data = [12,8,11,6,3];
+        const colors = ['#c4b5fd','#fb7185','#bbf7d0','#ffd8a8','#bfdbfe'];
+        try{ if(window.donutChart && typeof window.donutChart.destroy === 'function') window.donutChart.destroy(); }catch(e){}
+        window.donutChart = new Chart(ctx, { type:'doughnut', data:{ labels, datasets:[{ data, backgroundColor: colors }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'70%', plugins:{ legend:{ display:false } } } });
+      }
+
+      // resource chart
+      const resEl = document.getElementById('resourceChart');
+      if(resEl){
+        const ctx = resEl.getContext('2d');
+        const labelsX = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        const planned = [120,140,150,160,150,130,140];
+        const actual = [110,135,148,155,142,120,136];
+        try{ if(window.resourceChart && typeof window.resourceChart.destroy === 'function') window.resourceChart.destroy(); }catch(e){}
+        window.resourceChart = new Chart(ctx, { type:'bar', data:{ labels: labelsX, datasets:[ { label:'Planned', data:planned, backgroundColor:'#c7d2fe' }, { label:'Actual', data:actual, type:'line', borderColor:'#7c3aed', backgroundColor:'#7c3aed33', fill:false } ] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:true } } } });
+      }
+    }
+
+    // ---------- Recents / Templates ----------
+    async function loadHomeRecentsAndTemplates(){
+      recentProjectsBody.innerHTML = '<tr><td colspan="3" style="padding:30px 18px; text-align:center; color:#8aa0ab;">No recent projects</td></tr>';
+      try {
+        if(window.pywebview && window.pywebview.api && typeof window.pywebview.api.list_recent === 'function'){
+          const res = await window.pywebview.api.list_recent();
+          const recents = res && res.recent ? res.recent : [];
+          if(recents.length > 0){
+            recentProjectsBody.innerHTML = '';
+            recents.forEach(item=>{
+              const name = (item.path || '').split(/[\\/]/).pop() || item.path || '(Unnamed)';
+              const lm = item.last_modified || '';
+              const exists = item.exists ? '' : ' (missing)';
+              const tr = document.createElement('tr');
+              tr.innerHTML = `<td>${escapeHtml(name)}${exists}</td><td>${escapeHtml(lm)}</td><td>—</td>`;
+              recentProjectsBody.appendChild(tr);
+            });
+          }
+        }
+      } catch(e){ console.warn('list_recent failed', e); }
+
+      // Templates
+      try {
+        savedTemplatesList.innerHTML = '<div class="small-muted">No templates saved</div>';
+        if(window.pywebview && window.pywebview.api && typeof window.pywebview.api.list_templates === 'function'){
+          const res = await window.pywebview.api.list_templates();
+          const templates = res && res.templates ? res.templates : [];
+          if(templates.length > 0){
+            savedTemplatesList.innerHTML = '';
+            templates.forEach(t=>{
+              const row = document.createElement('div');
+              row.style.display = 'flex';
+              row.style.justifyContent = 'space-between';
+              row.style.alignItems = 'center';
+              row.style.padding = '10px';
+              row.style.borderRadius = '8px';
+              row.style.background = '#fff';
+              row.style.border = '1px solid #f1f5f9';
+              const left = document.createElement('div');
+              left.style.fontWeight = '600';
+              left.style.color = '#0b2545';
+              left.textContent = t.name || t.filename || 'Template';
+              const right = document.createElement('div');
+              right.style.fontSize = '12px';
+              right.style.color = '#7b8693';
+              right.textContent = t.description || '';
+              row.appendChild(left);
+              row.appendChild(right);
+              savedTemplatesList.appendChild(row);
+            });
+          }
+        }
+      } catch(e){ console.warn('list_templates failed', e); }
+    }
+
+    // ---------- Navigation helpers ----------
+    function setActiveNav(el){
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      if(el && el.classList) el.classList.add('active');
+    }
+    function showView(view){
+      const home = document.getElementById('homeView');
+      const dash = document.getElementById('dashboardView');
+      const editor = document.getElementById('editorView');
+      document.getElementById('topTitle').innerText = view === 'home' ? 'Home' : view === 'dashboard' ? 'Project Dashboard' : view === 'tasks' ? 'Tasks' : 'Project Editor';
+      document.getElementById('topSubtitle').innerText = '';
+      home.classList.toggle('hidden', view !== 'home');
+      dash.classList.toggle('hidden', view !== 'dashboard');
+      editor.classList.toggle('hidden', view !== 'editor');
+      if(view === 'dashboard') renderDashboardCharts();
+    }
+
+    document.getElementById('navHome').addEventListener('click', ()=>{ setActiveNav(document.getElementById('navHome')); showView('home'); });
+    document.getElementById('navDashboard').addEventListener('click', ()=>{ setActiveNav(document.getElementById('navDashboard')); showView('dashboard'); });
+    document.getElementById('navTasks').addEventListener('click', ()=>{ setActiveNav(document.getElementById('navTasks')); showView('tasks'); });
+    document.getElementById('navWorkload').addEventListener('click', ()=>{ setActiveNav(document.getElementById('navWorkload')); showView('dashboard'); });
+    document.getElementById('navFiles').addEventListener('click', ()=>{ setActiveNav(document.getElementById('navFiles')); showView('editor'); });
+    document.getElementById('navReports').addEventListener('click', ()=>{ setActiveNav(document.getElementById('navReports')); showView('dashboard'); });
+
+    // ---------- Resize/redraw helpers ----------
+    function throttleFn(fn, wait){ let t=null; return function(...a){ if(t) return; t = setTimeout(()=>{ t=null; fn.apply(this,a); }, wait); }; }
+    window.addEventListener('resize', throttleFn(()=>{ try{ if(window.donutChart && typeof window.donutChart.resize === 'function') window.donutChart.resize(); if(window.resourceChart && typeof window.resourceChart.resize === 'function') window.resourceChart.resize(); }catch(e){} }, 160));
+
+    // ---------- Modal wiring ----------
+    document.getElementById('btnNewBlank').addEventListener('click', (e)=>{ e.preventDefault(); openCreateModal(); });
+    modalCancelBtn.addEventListener('click', (e)=>{ e.preventDefault(); closeCreateModal(); });
+    modalCreateBtn.addEventListener('click', (e)=>{ e.preventDefault(); createProjectFlow(); });
+    projectNameInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); createProjectFlow(); } if(e.key === 'Escape'){ closeCreateModal(); } });
+    modalBackdrop.addEventListener('click', (ev)=>{ if(ev.target === modalBackdrop) closeCreateModal(); });
+
+    // ---------- Init ----------
+    (async function init(){
+      try{ await loadSidebarStateFromBackend(); }catch(e){ /* ignore */ }
+      try{ await tryLoadLogoRobust(); }catch(e){ /* ignore */ }
+      await loadHomeRecentsAndTemplates();
+      renderDashboardCharts();
+    })();
+
+  </script>
+</body>
+</html>
